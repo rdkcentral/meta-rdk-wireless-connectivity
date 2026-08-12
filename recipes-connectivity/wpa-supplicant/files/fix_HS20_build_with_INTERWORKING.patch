@@ -1,0 +1,28 @@
+Date: Thu 23 Jan 12:46:00 GMT 2025
+From: djalad690_comcast <Devika_Jaladi@comcast.com>
+Subject: wpa_supplicant patch "fix_HS20_build_with_MBO.patch" need to be corrected
+Source: COMCAST
+Signed-off-by: djalad690_comcast <Devika_Jaladi@comcast.com>
+
+Index: wpa_supplicant/interworking.c
+===================================================================
+--- a/wpa_supplicant/interworking.c
++++ b/wpa_supplicant/interworking.c
+@@ -1620,7 +1620,7 @@ static int interworking_connect_roaming_
+ 
+ 	if (interworking_set_hs20_params(wpa_s, ssid) < 0)
+ 		goto fail;
+-
++#ifdef CONFIG_HS20
+ 	ie = wpa_bss_get_ie(bss, WLAN_EID_ROAMING_CONSORTIUM);
+ 	anqp = bss->anqp ? bss->anqp->roaming_consortium : NULL;
+ 	for (i = 0; (ie || anqp) && i < cred->num_roaming_consortiums; i++) {
+@@ -1640,7 +1640,7 @@ static int interworking_connect_roaming_
+ 			cred->roaming_consortiums_len[i];
+ 		break;
+ 	}
+-
++#endif /* CONFIG_HS20 */
+ 	if (cred->eap_method == NULL) {
+ 		wpa_msg(wpa_s, MSG_DEBUG,
+ 			"Interworking: No EAP method set for credential using roaming consortium");

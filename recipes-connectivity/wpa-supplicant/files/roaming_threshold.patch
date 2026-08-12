@@ -1,0 +1,82 @@
+Index: wpa_supplicant-2.10/wpa_supplicant/bgscan_simple.c
+===================================================================
+--- wpa_supplicant-2.10.orig/wpa_supplicant/bgscan_simple.c
++++ wpa_supplicant-2.10/wpa_supplicant/bgscan_simple.c
+@@ -27,6 +27,7 @@ struct bgscan_simple_data {
+ 	int short_interval; /* use if signal < threshold */
+ 	int long_interval; /* use if signal > threshold */
+ 	struct os_reltime last_bgscan;
++	int roaming_threshold_db; /* min RSSI gain (dB) required to allow roam */
+ };
+ 
+ 
+@@ -95,6 +96,11 @@ static int bgscan_simple_get_params(stru
+ 	}
+ 	pos++;
+ 	data->long_interval = atoi(pos);
++	pos = os_strchr(pos, ':');
++	if (pos == NULL)
++		return 0;
++	pos++;
++	data->roaming_threshold_db = atoi(pos);
+ 
+ 	return 0;
+ }
+@@ -119,11 +125,16 @@ static void * bgscan_simple_init(struct
+ 		data->short_interval = 30;
+ 	if (data->long_interval <= 0)
+ 		data->long_interval = 30;
++	if (data->roaming_threshold_db < 0)
++		data->roaming_threshold_db = 0;
++
++	wpa_s->roaming_threshold_db = data->roaming_threshold_db;
+ 
+ 	wpa_printf(MSG_DEBUG, "bgscan simple: Signal strength threshold %d  "
+-		   "Short bgscan interval %d  Long bgscan interval %d",
++		   "Short bgscan interval %d  Long bgscan interval %d  "
++		   "Roaming threshold %d",
+ 		   data->signal_threshold, data->short_interval,
+-		   data->long_interval);
++		   data->long_interval, data->roaming_threshold_db);
+ 
+ 	if (data->signal_threshold &&
+ 	    wpa_drv_signal_monitor(wpa_s, data->signal_threshold, 4) < 0) {
+Index: wpa_supplicant-2.10/wpa_supplicant/events.c
+===================================================================
+--- wpa_supplicant-2.10.orig/wpa_supplicant/events.c
++++ wpa_supplicant-2.10/wpa_supplicant/events.c
+@@ -1927,6 +1927,22 @@ int wpa_supplicant_need_to_roam_within_e
+ 			cur_level, cur_snr, cur_est);
+ 	}
+ 
++	/* Enforce RSSI delta >= roaming_threshold_db before allowing reassociation */
++	if (wpa_s->roaming_threshold_db > 0) {
++		int delta_db = selected->level - cur_level; /* dBm; delta>0 => candidate stronger */
++		if (delta_db < wpa_s->roaming_threshold_db) {
++			wpa_dbg(wpa_s, MSG_DEBUG,
++				"Skip roam - RSSI delta=%d dB < threshold=%d dB",
++				delta_db, wpa_s->roaming_threshold_db);
++			/* Prevent the reassociation for this scan */
++			return 0;
++			/* Option A: clear candidate … */
++//			selected = NULL;
++			/* Option B: or ensure the local 'allow_reassoc' variable stays false */
++			/* allow_reassoc = 0; */
++			}
++	}
++
+ 	if (sel_est > cur_est + 5000) {
+ 		wpa_dbg(wpa_s, MSG_DEBUG,
+ 			"Allow reassociation - selected BSS has better estimated throughput");
+Index: wpa_supplicant-2.10/wpa_supplicant/wpa_supplicant_i.h
+===================================================================
+--- wpa_supplicant-2.10.orig/wpa_supplicant/wpa_supplicant_i.h
++++ wpa_supplicant-2.10/wpa_supplicant/wpa_supplicant_i.h
+@@ -1178,6 +1178,7 @@ struct wpa_supplicant {
+ 	struct wpa_ssid *bgscan_ssid;
+ 	const struct bgscan_ops *bgscan;
+ 	void *bgscan_priv;
++	int roaming_threshold_db; /* >=0: required RSSI delta (dB) to allow roam */
+ 
+ 	const struct autoscan_ops *autoscan;
+ 	struct wpa_driver_scan_params *autoscan_params;
