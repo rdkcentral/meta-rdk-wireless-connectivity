@@ -1,7 +1,18 @@
-Index: wpa_supplicant-2.10/wpa_supplicant/bgscan_simple.c
-===================================================================
---- wpa_supplicant-2.10.orig/wpa_supplicant/bgscan_simple.c
-+++ wpa_supplicant-2.10/wpa_supplicant/bgscan_simple.c
+From dc5cee63ee8ac76ff7acaf576f7d5c1032743af1 Mon Sep 17 00:00:00 2001
+From: OpenEmbedded <oe.patch@oe>
+Date: Wed, 12 Aug 2026 06:24:02 +0000
+Subject: [PATCH] CPESP-8908: Add wpa_supplicant generic recipe and patches
+
+---
+ wpa_supplicant/bgscan_simple.c    | 15 +++++++++++++--
+ wpa_supplicant/events.c           | 16 ++++++++++++++++
+ wpa_supplicant/wpa_supplicant_i.h |  1 +
+ 3 files changed, 30 insertions(+), 2 deletions(-)
+
+diff --git a/wpa_supplicant/bgscan_simple.c b/wpa_supplicant/bgscan_simple.c
+index 41a26df..3be86fc 100644
+--- a/wpa_supplicant/bgscan_simple.c
++++ b/wpa_supplicant/bgscan_simple.c
 @@ -27,6 +27,7 @@ struct bgscan_simple_data {
  	int short_interval; /* use if signal < threshold */
  	int long_interval; /* use if signal > threshold */
@@ -10,7 +21,7 @@ Index: wpa_supplicant-2.10/wpa_supplicant/bgscan_simple.c
  };
  
  
-@@ -95,6 +96,11 @@ static int bgscan_simple_get_params(stru
+@@ -95,6 +96,11 @@ static int bgscan_simple_get_params(struct bgscan_simple_data *data,
  	}
  	pos++;
  	data->long_interval = atoi(pos);
@@ -22,7 +33,7 @@ Index: wpa_supplicant-2.10/wpa_supplicant/bgscan_simple.c
  
  	return 0;
  }
-@@ -119,11 +125,16 @@ static void * bgscan_simple_init(struct
+@@ -119,11 +125,16 @@ static void * bgscan_simple_init(struct wpa_supplicant *wpa_s,
  		data->short_interval = 30;
  	if (data->long_interval <= 0)
  		data->long_interval = 30;
@@ -41,11 +52,11 @@ Index: wpa_supplicant-2.10/wpa_supplicant/bgscan_simple.c
  
  	if (data->signal_threshold &&
  	    wpa_drv_signal_monitor(wpa_s, data->signal_threshold, 4) < 0) {
-Index: wpa_supplicant-2.10/wpa_supplicant/events.c
-===================================================================
---- wpa_supplicant-2.10.orig/wpa_supplicant/events.c
-+++ wpa_supplicant-2.10/wpa_supplicant/events.c
-@@ -1927,6 +1927,22 @@ int wpa_supplicant_need_to_roam_within_e
+diff --git a/wpa_supplicant/events.c b/wpa_supplicant/events.c
+index f55e184..11f46ee 100644
+--- a/wpa_supplicant/events.c
++++ b/wpa_supplicant/events.c
+@@ -1927,6 +1927,22 @@ int wpa_supplicant_need_to_roam_within_ess(struct wpa_supplicant *wpa_s,
  			cur_level, cur_snr, cur_est);
  	}
  
@@ -68,11 +79,11 @@ Index: wpa_supplicant-2.10/wpa_supplicant/events.c
  	if (sel_est > cur_est + 5000) {
  		wpa_dbg(wpa_s, MSG_DEBUG,
  			"Allow reassociation - selected BSS has better estimated throughput");
-Index: wpa_supplicant-2.10/wpa_supplicant/wpa_supplicant_i.h
-===================================================================
---- wpa_supplicant-2.10.orig/wpa_supplicant/wpa_supplicant_i.h
-+++ wpa_supplicant-2.10/wpa_supplicant/wpa_supplicant_i.h
-@@ -1178,6 +1178,7 @@ struct wpa_supplicant {
+diff --git a/wpa_supplicant/wpa_supplicant_i.h b/wpa_supplicant/wpa_supplicant_i.h
+index 8bb8672..89191f1 100644
+--- a/wpa_supplicant/wpa_supplicant_i.h
++++ b/wpa_supplicant/wpa_supplicant_i.h
+@@ -1172,6 +1172,7 @@ struct wpa_supplicant {
  	struct wpa_ssid *bgscan_ssid;
  	const struct bgscan_ops *bgscan;
  	void *bgscan_priv;

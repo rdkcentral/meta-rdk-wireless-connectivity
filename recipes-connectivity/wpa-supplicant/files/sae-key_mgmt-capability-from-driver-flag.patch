@@ -1,13 +1,21 @@
-Date: Thu Apr 30 08:14:14 2026 +0100
+From adb0f5478b04e65ea554a001eb160868489ae609 Mon Sep 17 00:00:00 2001
+From: Arjun <arjun_daasuramdass@comcast.com>
+Date: Thu, 30 Apr 2026 08:14:14 +0100
+Subject: [PATCH] Wpa-supplicant to read driver capability of SAE
+
 From: sreedhar-reddy.billa
-Subject: Wpa-supplicant to read driver capability of SAE
 Source: NA
 Signed-off-by: Arjun <arjun_daasuramdass@comcast.com>
----
 
+---
+ src/drivers/driver_nl80211_capa.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/drivers/driver_nl80211_capa.c b/src/drivers/driver_nl80211_capa.c
+index 83868b7..f637ff7 100644
 --- a/src/drivers/driver_nl80211_capa.c
 +++ b/src/drivers/driver_nl80211_capa.c
-@@ -1358,6 +1358,11 @@
+@@ -1358,6 +1358,11 @@ int wpa_driver_nl80211_capa(struct wpa_driver_nl80211_data *drv)
  				WPA_DRIVER_CAPA_KEY_MGMT_FILS_SHA256 |
  				WPA_DRIVER_CAPA_KEY_MGMT_FILS_SHA384;
  	}
