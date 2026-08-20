@@ -1,24 +1,16 @@
-From 7a5afd2ec89cddaba01f19c8a838e70f18fa8974 Mon Sep 17 00:00:00 2001
-From: Nivetha J <Nivetha_JosephJohnBritto@comcast.com>
-Date: Wed, 12 Aug 2026 06:24:02 +0000
-Subject: [PATCH] wpa_supplicant log is flooded with "EAPOL: EAP Session-Id not
- available"
-
+Date: May 10, 2022
 From: Ib6292c40be424ab3310e4c31a1fe77e641e9f715
+Subject: wpa_supplicant log is flooded with "EAPOL: EAP Session-Id not available"
 Source: COMCAST
 License:
 Upstream-Status: Pending
 Signed-off-by: Nivetha J <Nivetha_JosephJohnBritto@comcast.com>
-
 ---
- src/eapol_supp/eapol_supp_sm.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/src/eapol_supp/eapol_supp_sm.c b/src/eapol_supp/eapol_supp_sm.c
-index 861eea2..9d5af05 100644
+Index: src/eapol_supp/eapol_supp_sm.c
+===================================================================
 --- a/src/eapol_supp/eapol_supp_sm.c
 +++ b/src/eapol_supp/eapol_supp_sm.c
-@@ -1645,7 +1645,7 @@ key_fetched:
+@@ -1629,7 +1629,7 @@ key_fetched:
  const u8 * eapol_sm_get_session_id(struct eapol_sm *sm, size_t *len)
  {
  	if (sm == NULL || !eap_key_available(sm->eap)) {

@@ -1,17 +1,10 @@
-From 170bd78381b82df2970141a01a7e4a0fc5358e54 Mon Sep 17 00:00:00 2001
+Date: Feb 09 2023
 From: Jaladi <djalad690@cable.comcast.com>
-Date: Wed, 12 Aug 2026 06:24:02 +0000
-Subject: [PATCH] wpa_supplicant upgrade to 2.10
-
+Subject: wpa_supplicant upgrade to 2.10
 Source: COMCAST
 Signed-off-by: Jaladi <djalad690@cable.comcast.com>
-
----
- wpa_supplicant/Makefile | 19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
-
-diff --git a/wpa_supplicant/Makefile b/wpa_supplicant/Makefile
-index cb66def..b71fae5 100644
+Index: wpa_supplicant/Makefile
+===================================================================
 --- a/wpa_supplicant/Makefile
 +++ b/wpa_supplicant/Makefile
 @@ -1,24 +1,29 @@
