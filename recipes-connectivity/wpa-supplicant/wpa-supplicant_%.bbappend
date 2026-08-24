@@ -2,7 +2,6 @@ PACKAGECONFIG:remove = "gnutls"
 PACKAGECONFIG:append = " openssl"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
-SRC_URI += "file://defconfig"
 SRC_URI += "file://openssl_no_md4_2.10.patch"
 SRC_URI += "file://fix_HS20_build_with_INTERWORKING.patch"
 SRC_URI += "file://increase_wpa_ctrl_return_buffer.patch"

@@ -1,0 +1,45 @@
+##################################################################
+Date: Jan 29, 2020 1:41 AM
+From:
+Subject: Add retry logic to connect to same bssid during auth timeout events
+Source: COMCAST
+License:
+Upstream-Status: Pending
+Signed-off-by: RDK User <rdk_user@cable.comcast.com>
+Signed-off-by: Akash Soragaon <akash.soragaon@sky.uk>
+################################################################
+
+diff -Naur '--exclude=*.orig' '--exclude=*.rej' wpa_supplicant-2.11.orig/wpa_supplicant/events.c wpa_supplicant-2.11-auth/wpa_supplicant/events.c
+--- wpa_supplicant-2.11.orig/wpa_supplicant/events.c	2026-06-16 10:51:07.768312402 +0100
++++ wpa_supplicant-2.11-auth/wpa_supplicant/events.c	2026-06-16 12:57:27.562306696 +0100
+@@ -6024,6 +6024,8 @@
+ 				   "FST: MB IEs updated from auth IE");
+ #endif /* CONFIG_FST */
+ 		sme_event_auth(wpa_s, data);
++		// Got Auth res, reset timeout counter
++		wpa_s->sme_auth_timeout_count = 0;
+ 		wpa_s->auth_status_code = data->auth.status_code;
+ 		wpas_notify_auth_status_code(wpa_s);
+ 		break;
+diff -Naur '--exclude=*.orig' '--exclude=*.rej' wpa_supplicant-2.11.orig/wpa_supplicant/sme.c wpa_supplicant-2.11-auth/wpa_supplicant/sme.c
+--- wpa_supplicant-2.11.orig/wpa_supplicant/sme.c	2026-06-16 10:51:07.784312649 +0100
++++ wpa_supplicant-2.11-auth/wpa_supplicant/sme.c	2026-06-16 12:57:27.562306696 +0100
+@@ -2923,6 +2923,7 @@
+ 			      union wpa_event_data *data)
+ {
+ 	wpa_dbg(wpa_s, MSG_DEBUG, "SME: Authentication timed out");
++	wpa_s->sme_auth_timeout_count++;
+ 	wpas_connection_failed(wpa_s, wpa_s->pending_bssid, NULL);
+ 	wpa_supplicant_mark_disassoc(wpa_s);
+ }
+diff -Naur '--exclude=*.orig' '--exclude=*.rej' wpa_supplicant-2.11.orig/wpa_supplicant/wpa_supplicant_i.h wpa_supplicant-2.11-auth/wpa_supplicant/wpa_supplicant_i.h
+--- wpa_supplicant-2.11.orig/wpa_supplicant/wpa_supplicant_i.h	2026-06-16 10:51:07.748312093 +0100
++++ wpa_supplicant-2.11-auth/wpa_supplicant/wpa_supplicant_i.h	2026-06-16 12:57:27.566306758 +0100
+@@ -809,6 +809,7 @@
+ 	const struct wpa_driver_ops *driver;
+ 	int interface_removed; /* whether the network interface has been
+ 				* removed */
++	int sme_auth_timeout_count;
+ 	struct wpa_sm *wpa;
+ 	struct ptksa_cache *ptksa;
+ 

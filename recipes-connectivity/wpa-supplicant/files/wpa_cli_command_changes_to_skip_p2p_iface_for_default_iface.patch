@@ -1,0 +1,17 @@
+Date: Feb 07 2024
+From: yuvaramachandran_gurusamy <yuvaramachandran_gurusamy@comcast.com>
+Subject: check p2p insteadof p2p-dev- to identify P2P iface to fix default iface.
+Source: COMCAST
+Signed-off-by: yuvaramachandran_gurusamy <yuvaramachandran_gurusamy@comcast.com>
+diff -Naur a/wpa_supplicant/wpa_cli.c b/wpa_supplicant/wpa_cli.c
+--- a/wpa_supplicant/wpa_cli.c	2024-02-01 19:17:29.864448282 +0000
++++ b/wpa_supplicant/wpa_cli.c	2024-02-01 19:18:43.592080380 +0000
+@@ -4924,7 +4924,7 @@
+ 		 * interfaces. */
+ 		if (os_strcmp(dent->d_name, ".") == 0 ||
+ 		    os_strcmp(dent->d_name, "..") == 0 ||
+-		    os_strncmp(dent->d_name, "p2p-dev-", 8) == 0)
++		    os_strncmp(dent->d_name, "p2p", 3) == 0)
+ 			continue;
+ 		printf("Selected interface '%s'\n", dent->d_name);
+ 		ifname = os_strdup(dent->d_name);

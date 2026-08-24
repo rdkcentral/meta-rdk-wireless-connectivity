@@ -4,8 +4,8 @@ BUGTRACKER = "http://w1.fi/security/"
 SECTION = "network"
 LICENSE = "BSD-3-Clause"
 LIC_FILES_CHKSUM = "file://COPYING;md5=5ebcb90236d1ad640558c3d3cd3035df \
-                    file://README;beginline=1;endline=56;md5=e3d2f6c2948991e37c1ca4960de84747 \
-                    file://wpa_supplicant/wpa_supplicant.c;beginline=1;endline=12;md5=76306a95306fee9a976b0ac1be70f705"
+                    file://README;beginline=1;endline=56;md5=6e4b25e7d74bfc44a32ba37bdf5210a6 \
+                    file://wpa_supplicant/wpa_supplicant.c;beginline=1;endline=12;md5=f5ccd57ea91e04800edb88267bf8eae4"
 DEPENDS = "dbus libnl"
 RRECOMMENDS:${PN} = "wpa-supplicant-passphrase wpa-supplicant-cli"
 
@@ -14,6 +14,8 @@ PACKAGECONFIG[gnutls] = ",,gnutls libgcrypt"
 PACKAGECONFIG[openssl] = ",,openssl"
 
 inherit pkgconfig systemd
+
+FILESEXTRAPATHS:prepend := "${THISDIR}/files/2.11:"
 
 SYSTEMD_SERVICE:${PN} = "wpa_supplicant.service"
 SYSTEMD_AUTO_ENABLE = "disable"
@@ -24,10 +26,12 @@ SRC_URI = "http://w1.fi/releases/wpa_supplicant-${PV}.tar.gz  \
            file://${PV}/wpa_supplicant.conf \
            file://${PV}/wpa_supplicant.conf-sane \
            file://${PV}/99_wpa_supplicant \
-	   file://wpa_supplicant_makefile_bug_fix_2.10.patch \
+           file://0001-macsec_linux-Hardware-offload-requires-Linux-headers.patch \
+           file://0002-defconfig-Update-Opportunistic-Wireless-Encryption-O.patch \
+           file://CVE-2025-24912-01.patch \
+           file://CVE-2025-24912-02.patch \
           "
-SRC_URI[md5sum] = "d26797fcb002898d4ee989179346e1cc"
-SRC_URI[sha256sum] = "20df7ae5154b3830355f8ab4269123a87affdea59fe74fe9292a91d0d7e17b2f"
+SRC_URI[sha256sum] = "912ea06f74e30a8e36fbb68064d6cdff218d8d591db0fc5d75dee6c81ac7fc0a"
 
 CVE_PRODUCT = "wpa_supplicant"
 
@@ -104,12 +108,4 @@ do_install () {
 
 	install -d ${D}/etc/default/volatiles
 	install -m 0644 ${WORKDIR}/99_wpa_supplicant ${D}/etc/default/volatiles
-}
-
-pkg_postinst:wpa-supplicant () {
-	# If we're offline, we don't need to do this.
-	if [ "x$D" = "x" ]; then
-		killall -q -HUP dbus-daemon || true
-	fi
-
 }

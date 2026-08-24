@@ -1,0 +1,59 @@
+#####################################################################
+Date: Apr 8, 2020 07:35 AM
+From:
+Subject: Add additional logging to identify bss selection criteria
+Source: COMCAST
+License:
+Upstream-Status: Pending
+Signed-off-by: Rahul Chandran R <rahul_chandranr@comcast.com>
+Signed-off-by: Akash Soragaon  <akash.soragaon@sky.uk>
+#####################################################################
+
+--- wpa_supplicant-2.11.orig/wpa_supplicant/bss.c	2026-06-16 10:51:07.736311908 +0100
++++ wpa_supplicant-2.11-fix/wpa_supplicant/bss.c	2026-06-16 13:12:07.852061010 +0100
+@@ -21,6 +21,8 @@
+ #include "bssid_ignore.h"
+ #include "bss.h"
+ 
++static int is_5g_found = 0;
++
+ static void wpa_bss_set_hessid(struct wpa_bss *bss)
+ {
+ #ifdef CONFIG_INTERWORKING
+@@ -528,10 +530,14 @@
+ 				  MAC2STR(bss->mld_addr));
+ 	}
+ 
+-	wpa_dbg(wpa_s, MSG_DEBUG, "BSS: Add new id %u BSSID " MACSTR
+-		" SSID '%s' freq %d%s",
+-		bss->id, MAC2STR(bss->bssid), wpa_ssid_txt(ssid, ssid_len),
+-		bss->freq, extra);
++	wpa_dbg(wpa_s, MSG_DEBUG, "BSS: Add new id %u BSSID " MACSTR " SSID '%s'", bss->id, MAC2STR(bss->bssid), wpa_ssid_txt(ssid, ssid_len));
++	if(wpa_s->conf->ssid && (bss->ssid_len == wpa_s->conf->ssid->ssid_len) && (os_memcmp(ssid, wpa_s->conf->ssid->ssid, ssid_len) == 0)) {
++		wpa_dbg(wpa_s, MSG_DEBUG, "BSS: BSSID " MACSTR " found for SSID '%s' freq %d signal %d noise %d qual %d est_throughput %u ", MAC2STR(bss->bssid), wpa_ssid_txt(ssid, ssid_len), bss->freq, bss->level, bss->noise, bss->qual, bss->est_throughput);
++		if((bss->freq/1000) == 5) {
++			is_5g_found = 1;
++			wpa_dbg(wpa_s, MSG_DEBUG, "BSS: Found 5GHz BSSID for SSID '%s'.", wpa_ssid_txt(ssid, ssid_len));
++		}
++	}
+ 	wpas_notify_bss_added(wpa_s, bss->bssid, bss->id);
+ 	return bss;
+ }
+@@ -815,6 +821,7 @@
+ 	wpa_dbg(wpa_s, MSG_DEBUG, "BSS: Start scan result update %u",
+ 		wpa_s->bss_update_idx);
+ 	wpa_s->last_scan_res_used = 0;
++	is_5g_found = 0;
+ }
+ 
+ 
+@@ -1000,6 +1007,9 @@
+ 
+ 	wpa_printf(MSG_DEBUG, "BSS: last_scan_res_used=%zu/%zu",
+ 		   wpa_s->last_scan_res_used, wpa_s->last_scan_res_size);
++	if(!is_5g_found && wpa_s->conf->ssid) {
++		wpa_printf(MSG_DEBUG, "BSS: Not able to find any 5GHz BSSID for SSID '%s'", wpa_ssid_txt(wpa_s->conf->ssid->ssid, wpa_s->conf->ssid->ssid_len));
++	}
+ }
+ 
+ 

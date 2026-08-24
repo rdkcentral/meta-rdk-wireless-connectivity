@@ -1,0 +1,103 @@
+--- wpa_supplicant-2.11.orig/src/utils/wpa_debug.c	2026-06-16 10:51:07.980315679 +0100
++++ wpa_supplicant-2.11-fix/src/utils/wpa_debug.c	2026-06-16 13:46:26.084416478 +0100
+@@ -10,6 +10,8 @@
+ 
+ #include "common.h"
+ 
++#include <time.h>
++
+ #ifdef CONFIG_DEBUG_SYSLOG
+ #include <syslog.h>
+ #endif /* CONFIG_DEBUG_SYSLOG */
+@@ -30,6 +32,7 @@
+ int wpa_debug_level = MSG_INFO;
+ int wpa_debug_show_keys = 0;
+ int wpa_debug_timestamp = 0;
++int wpa_debug_timestamp_utc = 0;
+ int wpa_debug_syslog = 0;
+ #ifndef CONFIG_NO_STDOUT_DEBUG
+ static FILE *out_file = NULL;
+@@ -76,9 +79,16 @@
+ 
+ 	os_get_time(&tv);
+ #ifdef CONFIG_DEBUG_FILE
+-	if (out_file)
+-		fprintf(out_file, "%ld.%06u: ", (long) tv.sec,
+-			(unsigned int) tv.usec);
++	if (out_file){
++		if(wpa_debug_timestamp_utc == 0) {
++			fprintf(out_file, "%ld.%06u: ", (long) tv.sec,
++				(unsigned int) tv.usec);
++		} else if(wpa_debug_timestamp_utc == 1) {  /* Print in UTC time Format */
++			char utc_time_string[32];
++			strftime (utc_time_string,sizeof(utc_time_string), "%Y %b %d %H:%M:%S",gmtime (&tv.sec));
++			fprintf(out_file,"%s.%06lu: ", utc_time_string,(unsigned long)tv.usec);
++		}
++	}
+ #endif /* CONFIG_DEBUG_FILE */
+ 	if (!out_file && !wpa_debug_syslog)
+ 		printf("%ld.%06u: ", (long) tv.sec, (unsigned int) tv.usec);
+--- wpa_supplicant-2.11.orig/src/utils/wpa_debug.h	2026-06-16 10:51:07.976315617 +0100
++++ wpa_supplicant-2.11-fix/src/utils/wpa_debug.h	2026-06-16 13:46:45.304724403 +0100
+@@ -14,6 +14,7 @@
+ extern int wpa_debug_level;
+ extern int wpa_debug_show_keys;
+ extern int wpa_debug_timestamp;
++extern int wpa_debug_timestamp_utc;
+ extern int wpa_debug_syslog;
+ 
+ /* Debugging function - conditional printf and hex dump. Driver wrappers can
+--- wpa_supplicant-2.11.orig/wpa_supplicant/main.c	2026-06-16 10:51:07.736311908 +0100
++++ wpa_supplicant-2.11-fix/wpa_supplicant/main.c	2026-06-16 13:46:45.348725109 +0100
+@@ -95,6 +95,7 @@
+ 	       "  -s = log output to syslog instead of stdout\n"
+ #endif /* CONFIG_DEBUG_SYSLOG */
+ 	       "  -t = include timestamp in debug messages\n"
++	       "  -U = include timestamp in UTC time format \n"
+ #ifdef CONFIG_DEBUG_LINUX_TRACING
+ 	       "  -T = record to Linux tracing in addition to logging\n"
+ 	       "       (records all messages regardless of debug verbosity)\n"
+@@ -202,7 +203,7 @@
+ 
+ 	for (;;) {
+ 		c = getopt(argc, argv,
+-			   "b:Bc:C:D:de:f:g:G:hi:I:KLMm:No:O:p:P:qsTtuvW");
++			   "b:Bc:C:D:de:f:g:G:hi:I:KLMm:No:O:p:P:qsTtuUvW");
+ 		if (c < 0)
+ 			break;
+ 		switch (c) {
+@@ -296,6 +297,9 @@
+ 		case 't':
+ 			params.wpa_debug_timestamp++;
+ 			break;
++		case 'U':
++			params.wpa_debug_timestamp_utc++;
++			break;
+ #ifdef CONFIG_CTRL_IFACE_DBUS_NEW
+ 		case 'u':
+ 			params.dbus_ctrl_interface = 1;
+--- wpa_supplicant-2.11.orig/wpa_supplicant/wpa_supplicant.c	2026-06-16 10:51:07.796312835 +0100
++++ wpa_supplicant-2.11-fix/wpa_supplicant/wpa_supplicant.c	2026-06-16 13:46:45.348725109 +0100
+@@ -8106,6 +8106,8 @@
+ 		params->wpa_debug_show_keys;
+ 	wpa_debug_timestamp = global->params.wpa_debug_timestamp =
+ 		params->wpa_debug_timestamp;
++	wpa_debug_timestamp_utc = global->params.wpa_debug_timestamp_utc =
++		params->wpa_debug_timestamp_utc;
+ 
+ 	wpa_printf(MSG_DEBUG, "wpa_supplicant v%s", VERSION_STR);
+ 
+--- wpa_supplicant-2.11.orig/wpa_supplicant/wpa_supplicant_i.h	2026-06-16 10:51:07.748312093 +0100
++++ wpa_supplicant-2.11-fix/wpa_supplicant/wpa_supplicant_i.h	2026-06-16 13:46:45.348725109 +0100
+@@ -236,6 +236,11 @@
+ 	 */
+ 	char *entropy_file;
+ 
++	/**
++	 * wpa_debug_timestamp_utc - Whether to include timestamp in UTC in debug messages
++	 */
++	int wpa_debug_timestamp_utc;
++
+ #ifdef CONFIG_P2P
+ 	/**
+ 	 * conf_p2p_dev - Configuration file used to hold the
