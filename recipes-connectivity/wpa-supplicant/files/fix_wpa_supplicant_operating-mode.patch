@@ -1,0 +1,28 @@
+#####################################################################
+Date: Tue March 2 16:50:00 2021 +0000
+From: Matthew Golab <matthew.golab@sky.uk>
+Subject: [PATCH] Fix issue where "wpa_cli status" incorrectly reports "ieee80211ac=1" when operating in AX mode.
+Source: SKY
+Signed-off-by: Matthew Golab <matthew.golab@sky.uk>
+#####################################################################
+
+Index: wpa_supplicant/ctrl_iface.c
+===================================================================
+--- a/wpa_supplicant/ctrl_iface.c
++++ b/wpa_supplicant/ctrl_iface.c
+@@ -2364,8 +2364,13 @@
+ 	}
+ #endif /* CONFIG_WPS */
+ 
+-	if (wpa_s->ieee80211ac) {
+-		ret = os_snprintf(pos, end - pos, "ieee80211ac=1\n");
++	if (wpa_s->connection_set &&
++		(wpa_s->connection_ht || wpa_s->connection_vht ||
++			wpa_s->connection_he)) {
++		ret = os_snprintf(pos, end - pos,
++					"ieee80211%s=1\n",
++					wpa_s->connection_he ? "ax" :
++					(wpa_s->connection_vht ? "ac" : "n"));
+ 		if (os_snprintf_error(end - pos, ret))
+ 			return pos - buf;
+ 		pos += ret;

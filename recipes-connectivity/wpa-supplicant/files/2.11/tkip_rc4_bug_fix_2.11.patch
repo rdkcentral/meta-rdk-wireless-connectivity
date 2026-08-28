@@ -1,0 +1,30 @@
+Date: Thu Sep 17 06:14:14 2020 +0100
+From: Rahamataunisa shaik <shaik.b@tataelxsi.co.in>
+Subject: rm15382: WPA3 support for llama - TKIP RC4 fix (2.11)
+Source: SKY Thu Sep 17 06:14:14 2020 +0100
+Signed-off-by: Rahamataunisa shaik <shaik.b@tataelxsi.co.in>
+---
+
+diff -Naur a/src/crypto/crypto_openssl.c b/src/crypto/crypto_openssl.c
+--- a/src/crypto/crypto_openssl.c
++++ b/src/crypto/crypto_openssl.c
+@@ -362,7 +362,7 @@
+ }
+ 
+ 
+-#ifndef CONFIG_NO_RC4
++#ifdef CONFIG_NO_RC4
+ int rc4_skip(const u8 *key, size_t keylen, size_t skip,
+ 	     u8 *data, size_t data_len)
+ {
+diff -Naur a/wpa_supplicant/Makefile b/wpa_supplicant/Makefile
+--- a/wpa_supplicant/Makefile
++++ b/wpa_supplicant/Makefile
+@@ -1206,6 +1206,7 @@
+ endif
+ 
+ ifeq ($(CONFIG_TLS), openssl)
++CONFIG_INTERNAL_RC4=y
+ CFLAGS += -DCRYPTO_RSA_OAEP_SHA256
+ ifdef TLS_FUNCS
+ CFLAGS += -DEAP_TLS_OPENSSL

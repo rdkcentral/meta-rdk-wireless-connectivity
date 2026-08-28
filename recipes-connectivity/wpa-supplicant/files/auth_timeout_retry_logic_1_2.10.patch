@@ -1,0 +1,219 @@
+#####################################################################
+Date: Jan 29, 2020 1:41 AM
+From: 
+Subject: Add retry logic to connect to same bssid during auth timeout events
+Source: COMCAST
+License:
+Upstream-Status: Pending
+Signed-off-by: RDK User <rdk_user@cable.comcast.com>
+Signed-off-by: Akash Soragaon <akash.soragaon@sky.uk>
+#####################################################################
+Index: wpa_supplicant/wpa_supplicant.c
+===================================================================
+--- a/wpa_supplicant/wpa_supplicant.c
++++ b/wpa_supplicant/wpa_supplicant.c
+@@ -69,6 +69,8 @@
+ #include "ap/hostapd.h"
+ #endif /* CONFIG_MESH */
+ 
++#define SME_AUTH_TIME_OUT_RETRY_COUNT 3
++
+ const char *const wpa_supplicant_version =
+ "wpa_supplicant v" VERSION_STR "\n"
+ "Copyright (c) 2003-2022, Jouni Malinen <j@w1.fi> and contributors";
+@@ -7623,8 +7625,7 @@ void add_freq(int *freqs, int *num_freqs
+ 	(*num_freqs)++;
+ }
+ 
+-
+-static int * get_bss_freqs_in_ess(struct wpa_supplicant *wpa_s)
++static int * get_bss_freqs_in_ess(struct wpa_supplicant *wpa_s,int incl_curr_freq)
+ {
+ 	struct wpa_bss *bss, *cbss;
+ 	const int max_freqs = 10;
+@@ -7638,7 +7639,7 @@ static int * get_bss_freqs_in_ess(struct
+ 	cbss = wpa_s->current_bss;
+ 
+ 	dl_list_for_each(bss, &wpa_s->bss, struct wpa_bss, list) {
+-		if (bss == cbss)
++		if (bss == cbss && incl_curr_freq == 0)
+ 			continue;
+ 		if (bss->ssid_len == cbss->ssid_len &&
+ 		    os_memcmp(bss->ssid, cbss->ssid, bss->ssid_len) == 0 &&
+@@ -7663,6 +7664,7 @@ void wpas_connection_failed(struct wpa_s
+ 	int timeout;
+ 	int count;
+ 	int *freqs = NULL;
++	int sme_auth_timed_out = 0;
+ 
+ 	wpas_connect_work_done(wpa_s);
+ 
+@@ -7687,76 +7689,105 @@ void wpas_connection_failed(struct wpa_s
+ 			"disconnected state");
+ 		return;
+ 	}
+-
+ 	/*
+-	 * Add the failed BSSID into the ignore list and speed up next scan
+-	 * attempt if there could be other APs that could accept association.
+-	 */
+-	count = wpa_bssid_ignore_add(wpa_s, bssid);
+-	if (count == 1 && wpa_s->current_bss) {
+-		/*
+-		 * This BSS was not in the ignore list before. If there is
+-		 * another BSS available for the same ESS, we should try that
+-		 * next. Otherwise, we may as well try this one once more
+-		 * before allowing other, likely worse, ESSes to be considered.
+-		 */
+-		freqs = get_bss_freqs_in_ess(wpa_s);
+-		if (freqs) {
+-			wpa_dbg(wpa_s, MSG_DEBUG, "Another BSS in this ESS "
++	 * Check if the connection is failed due to SME_AUTH_TIME_OUT
++        */
++        if(wpa_s->drv_flags & WPA_DRIVER_FLAGS_SME)
++                sme_auth_timed_out = 1;
++
++       /*
++        * If connection is failed due to SME_AUTH_TIME_OUT for a 5 GHz BSSID, retry 3 times to the same BSSID before trying for another BSS
++        * Skip blacklist addition in that case and start new scan after 500ms of sleep time.
++        */
++      if((wpa_s->sme_auth_timeout_count && sme_auth_timed_out) && (wpa_s->current_bss != NULL) && ((wpa_s->current_bss->freq/1000) == 5) && (wpa_s->sme_auth_timeout_count <= SME_AUTH_TIME_OUT_RETRY_COUNT)) {
++           // Wait for 500ms before starting another scan
++          timeout = 500;
++          wpa_dbg(wpa_s, MSG_DEBUG, "SME Auth Timed Out, Count = %d, Skipping Blacklisting of BSSID",wpa_s->sme_auth_timeout_count);
++
++          /*
++           * We don't need to scan the entrire channel for next time as we know the list of frequencies for given SSID
++           */
++           if(wpa_s->sme_auth_timeout_count == 1 && wpa_s->current_bss) {
++               freqs = get_bss_freqs_in_ess(wpa_s,1);
++               if(freqs) {
++                   wpa_dbg(wpa_s, MSG_DEBUG,"Another BSS in this ESS has been seen, try it next");
++                   os_free(wpa_s->next_scan_freqs);
++                   wpa_s->next_scan_freqs = freqs;
++               }
++           }
++
++      } else {
++	      /*
++	       * Add the failed BSSID into the ignore list and speed up next scan
++	       * attempt if there could be other APs that could accept association.
++	       */
++	      wpa_dbg(wpa_s, MSG_DEBUG, "sme_auth_timed_out = %d And SME_AUTH_TIME_OUT_COUNT = %d , Start Blacklisting BSSID",sme_auth_timed_out,wpa_s->sme_auth_timeout_count);
++	      if (!sme_auth_timed_out)
++		      wpa_s->sme_auth_timeout_count = 0;
++
++	      count = wpa_bssid_ignore_add(wpa_s, bssid);
++	      if (count == 1 && wpa_s->current_bss) {
++		      /*
++		       * This BSS was not in the ignore list before. If there is
++		       * another BSS available for the same ESS, we should try that
++		       * next. Otherwise, we may as well try this one once more
++		       * before allowing other, likely worse, ESSes to be considered.
++		       */
++		      freqs = get_bss_freqs_in_ess(wpa_s, 0);
++	 	      if (freqs) {
++			      wpa_dbg(wpa_s, MSG_DEBUG, "Another BSS in this ESS "
+ 				"has been seen; try it next");
+-			wpa_bssid_ignore_add(wpa_s, bssid);
+-			/*
+-			 * On the next scan, go through only the known channels
+-			 * used in this ESS based on previous scans to speed up
+-			 * common load balancing use case.
+-			 */
+-			os_free(wpa_s->next_scan_freqs);
+-			wpa_s->next_scan_freqs = freqs;
+-		}
+-	}
++			      wpa_bssid_ignore_add(wpa_s, bssid);
++			      /*
++			       * On the next scan, go through only the known channels
++			       * used in this ESS based on previous scans to speed up
++			       * common load balancing use case.
++			       */
++			      os_free(wpa_s->next_scan_freqs);
++			      wpa_s->next_scan_freqs = freqs;
++		      }
++	      }
+ 
+-	wpa_s->consecutive_conn_failures++;
++	      wpa_s->consecutive_conn_failures++;
+ 
+-	if (wpa_s->consecutive_conn_failures > 3 && wpa_s->current_ssid) {
+-		wpa_printf(MSG_DEBUG, "Continuous association failures - "
++	      if (wpa_s->consecutive_conn_failures > 3 && wpa_s->current_ssid) {
++		      wpa_printf(MSG_DEBUG, "Continuous association failures - "
+ 			   "consider temporary network disabling");
+-		wpas_auth_failed(wpa_s, "CONN_FAILED");
+-	}
+-	/*
+-	 * Multiple consecutive connection failures mean that other APs are
+-	 * either not available or have already been tried, so we can start
+-	 * increasing the delay here to avoid constant scanning.
+-	 */
+-	switch (wpa_s->consecutive_conn_failures) {
+-	case 1:
+-		timeout = 100;
+-		break;
+-	case 2:
+-		timeout = 500;
+-		break;
+-	case 3:
+-		timeout = 1000;
+-		break;
+-	case 4:
+-		timeout = 5000;
+-		break;
+-	default:
+-		timeout = 10000;
+-		break;
+-	}
+-
+-	wpa_dbg(wpa_s, MSG_DEBUG,
++		      wpas_auth_failed(wpa_s, "CONN_FAILED");
++	      }
++	      /*
++	       * Multiple consecutive connection failures mean that other APs are
++	       * either not available or have already been tried, so we can start
++	       * increasing the delay here to avoid constant scanning.
++	       */
++	       switch (wpa_s->consecutive_conn_failures) {
++	       case 1:
++		       timeout = 100;
++		       break;
++	       case 2:
++		       timeout = 500;
++		       break;
++	       case 3:
++		       timeout = 1000;
++		       break;
++	       case 4:
++		       timeout = 5000;
++		       break;
++	       default:
++		       timeout = 10000;
++		       break;
++	       }
++	       wpa_dbg(wpa_s, MSG_DEBUG,
+ 		"Consecutive connection failures: %d --> request scan in %d ms",
+ 		wpa_s->consecutive_conn_failures, timeout);
+-
+-	/*
+-	 * TODO: if more than one possible AP is available in scan results,
+-	 * could try the other ones before requesting a new scan.
+-	 */
+-
+-	/* speed up the connection attempt with normal scan */
+-	wpa_s->normal_scans = 0;
+-	wpa_supplicant_req_scan(wpa_s, timeout / 1000,
++      }
++      /*
++       * TODO: if more than one possible AP is available in scan results,
++       * could try the other ones before requesting a new scan.
++       */
++      /* speed up the connection attempt with normal scan */
++      wpa_s->normal_scans = 0;
++      wpa_supplicant_req_scan(wpa_s, timeout / 1000,
+ 				1000 * (timeout % 1000));
+ }
+ 

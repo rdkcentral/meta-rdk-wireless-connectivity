@@ -1,0 +1,47 @@
+##################################################################
+Date: Jan 29, 2020 1:41 AM
+From:
+Subject: Add retry logic to connect to same bssid during auth timeout events
+Source: COMCAST
+License:
+Upstream-Status: Pending
+Signed-off-by: RDK User <rdk_user@cable.comcast.com>
+Signed-off-by: Akash Soragaon <akash.soragaon@sky.uk>
+################################################################
+
+Index: wpa_supplicant/events.c
+===================================================================
+--- a/wpa_supplicant/events.c
++++ b/wpa_supplicant/events.c
+@@ -4424,6 +4424,8 @@ void wpa_supplicant_event(void *ctx, enu
+ 				   "FST: MB IEs updated from auth IE");
+ #endif /* CONFIG_FST */
+ 		sme_event_auth(wpa_s, data);
++                // Got Auth res, reset timeout counter
++                wpa_s->sme_auth_timeout_count = 0;
+ 		wpa_s->auth_status_code = data->auth.status_code;
+ 		wpas_notify_auth_status_code(wpa_s);
+ 		break;
+Index: wpa_supplicant/sme.c
+===================================================================
+--- a/wpa_supplicant/sme.c
++++ b/wpa_supplicant/sme.c
+@@ -1898,6 +1898,7 @@ void sme_event_auth_timed_out(struct wpa
+ 			      union wpa_event_data *data)
+ {
+ 	wpa_dbg(wpa_s, MSG_DEBUG, "SME: Authentication timed out");
++	wpa_s->sme_auth_timeout_count++;
+ 	wpas_connection_failed(wpa_s, wpa_s->pending_bssid);
+ 	wpa_supplicant_mark_disassoc(wpa_s);
+ }
+Index: wpa_supplicant/wpa_supplicant_i.h
+===================================================================
+--- a/wpa_supplicant/wpa_supplicant_i.h
++++ b/wpa_supplicant/wpa_supplicant_i.h
+@@ -599,6 +599,7 @@ struct wpa_supplicant {
+ 	const struct wpa_driver_ops *driver;
+ 	int interface_removed; /* whether the network interface has been
+ 				* removed */
++	int sme_auth_timeout_count;
+ 	struct wpa_sm *wpa;
+ 	struct eapol_sm *eapol;
