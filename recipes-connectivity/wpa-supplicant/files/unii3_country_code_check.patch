@@ -1,0 +1,62 @@
+#####################################################################
+Date: Mon Jun 19 15:01:01 2023 +0000
+From: Ashok Kamath <ashok.kamath2@sky.uk>
+Subject: [PATCH] To operate on U-NII-3 channels in the UK, there is a 
+		 regulatory requirement for the client to have GEO location 
+		 awareness. The solution is to check the Country Code of the
+		 connecting AP, if it is GB and the client is also GB then 
+		 the BSS (for the U-NII-3 frequency range) is added, otherwise
+		 it is removed.
+Source: SKY
+Signed-off-by: Ashok Kamath <ashok.kamath2@sky.uk>
+#####################################################################
+
+--- a/wpa_supplicant/bss.c	2023-06-19 08:36:29.342782466 +0100
++++ b/wpa_supplicant/bss.c	2023-06-19 08:36:10.758501702 +0100
+@@ -811,9 +811,44 @@
+ 		ssid = mesh;
+ 
+ 	bss = wpa_bss_get(wpa_s, res->bssid, ssid + 2, ssid[1]);
+-	if (bss == NULL)
++	if (bss == NULL) {
+ 		bss = wpa_bss_add(wpa_s, ssid + 2, ssid[1], res, fetch_time);
+-	else {
++		if ((wpa_s->conf->country[0] == 'G') && (wpa_s->conf->country[1] == 'B')) {
++			if (bss && (bss->freq >= 5720 && bss->freq <= 5825)) {
++				const char *country = NULL;
++				const u8 *elem = wpa_bss_get_ie(bss, WLAN_EID_COUNTRY);
++
++				if (elem && elem[1] >= 2)
++					country = (const char *) (elem + 2);
++
++				if (country) {
++					if ((wpa_s->conf->country[0] == country[0]) &&
++						(wpa_s->conf->country[1] == country[1])) {
++							wpa_dbg(wpa_s, MSG_DEBUG, "BSS: id %u U-NII-3: CC match. BSSID " MACSTR
++									" SSID '%s' freq %d CC=\'%c%c\' Our CC=\'%c%c\'",
++									bss->id, MAC2STR(bss->bssid), wpa_ssid_txt((ssid + 2), ssid[1]),
++								    bss->freq, country[0], country[1],
++									wpa_s->conf->country[0], wpa_s->conf->country[1]);
++					} else {
++						wpa_dbg(wpa_s, MSG_DEBUG, "BSS: id %u U-NII-3: CC mismatch. BSSID " MACSTR
++								" SSID '%s' freq %d CC=\'%c%c\' Our CC=\'%c%c\'",
++								bss->id, MAC2STR(bss->bssid), wpa_ssid_txt((ssid + 2), ssid[1]),
++								bss->freq, country[0], country[1],
++								wpa_s->conf->country[0], wpa_s->conf->country[1]);
++						wpa_bss_remove(wpa_s, bss, "U-NII-3: router CC mismatch");
++						return;
++					}
++				} else {
++						wpa_dbg(wpa_s, MSG_DEBUG, "BSS: id = %u U-NII-3: No CC. BSSID " MACSTR
++								" SSID '%s' freq %d Our CC=\'%c%c\'",
++								bss->id, MAC2STR(bss->bssid), wpa_ssid_txt((ssid + 2), ssid[1]),
++								bss->freq, wpa_s->conf->country[0], wpa_s->conf->country[1]);
++						wpa_bss_remove(wpa_s, bss, "U-NII-3: router CC is missing");
++						return;
++				}
++			}
++		}
++	} else {
+ 		bss = wpa_bss_update(wpa_s, bss, res, fetch_time);
+ 		if (wpa_s->last_scan_res) {
+ 			unsigned int i;

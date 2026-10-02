@@ -1,0 +1,30 @@
+Date: Thu Sep 17 06:14:14 2020 +0100
+From: Rahamataunisa shaik <shaik.b@tataelxsi.co.in>
+Subject: rm15382: WPA3 support for llama
+Source: SKY Thu Sep 17 06:14:14 2020 +0100
+Signed-off-by: Rahamataunisa shaik <shaik.b@tataelxsi.co.in>
+---
+
+diff -Naur a/src/crypto/crypto_openssl.c b/src/crypto/crypto_openssl.c
+--- a/src/crypto/crypto_openssl.c	2020-06-11 12:02:40.011190019 +0100
++++ b/src/crypto/crypto_openssl.c	2020-06-15 20:20:58.248976919 +0100
+@@ -214,7 +214,7 @@
+ }
+ 
+ 
+-#ifndef CONFIG_NO_RC4
++#ifdef CONFIG_NO_RC4
+ int rc4_skip(const u8 *key, size_t keylen, size_t skip,
+ 	     u8 *data, size_t data_len)
+ {
+diff -Naur a/wpa_supplicant/Makefile b/wpa_supplicant/Makefile
+--- a/wpa_supplicant/Makefile	2020-06-15 15:09:49.061447827 +0100
++++ b/wpa_supplicant/Makefile	2020-06-15 15:09:28.021102940 +0100
+@@ -1100,6 +1100,7 @@
+ endif
+ 
+ ifeq ($(CONFIG_TLS), openssl)
++CONFIG_INTERNAL_RC4=y
+ ifdef TLS_FUNCS
+ CFLAGS += -DEAP_TLS_OPENSSL
+ OBJS += ../src/crypto/tls_openssl.o
