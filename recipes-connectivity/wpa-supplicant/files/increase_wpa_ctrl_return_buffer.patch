@@ -1,0 +1,32 @@
+Date: Feb 22, 2019 11:45 AM
+From: Vijaya Ramarao Mellempudi <Vijaya_RamaraoMellempudi@comcast.com>
+Subject: [PATCH] RDK-23442:Increasing the return_buff size to 16KB [PATCH]:Increasing the return_buff size to 96KB Increase scan results buf size to 96KB.	
+Source: COMCAST ab23b5fcb84ebbe1697b423bee0ec7dfdfb66bad Mar 6, 2019 12:08 PM
+Signed-off-by: Vijaya Ramarao Mellempudi <Vijaya_RamaraoMellempudi@comcast.com>
+---
+
+diff -ruN a/wpa_supplicant/bss.c b/wpa_supplicant/bss.c
+--- a/wpa_supplicant/bss.c	2016-10-02 18:51:11.000000000 +0000
++++ b/wpa_supplicant/bss.c	2017-11-28 22:01:49.000000000 +0000
+@@ -439,8 +439,7 @@
+ 	os_memcpy(bss + 1, res + 1, res->ie_len + res->beacon_ie_len);
+ 	wpa_bss_set_hessid(bss);
+ 
+-	if (wpa_s->num_bss + 1 > wpa_s->conf->bss_max_count &&
+-	    wpa_bss_remove_oldest(wpa_s) != 0) {
++	if (wpa_s->num_bss + 1 > wpa_s->conf->bss_max_count) {
+ 		wpa_printf(MSG_ERROR, "Increasing the MAX BSS count to %d "
+ 			   "because all BSSes are in use. We should normally "
+ 			   "not get here!", (int) wpa_s->num_bss + 1);
+diff -ruN a/wpa_supplicant/ctrl_iface.c b/wpa_supplicant/ctrl_iface.c
+--- a/wpa_supplicant/ctrl_iface.c	2017-11-28 22:03:47.000000000 +0000
++++ b/wpa_supplicant/ctrl_iface.c	2017-11-28 22:03:14.000000000 +0000
+@@ -8658,7 +8658,7 @@
+ 					 char *buf, size_t *resp_len)
+ {
+ 	char *reply;
+-	const int reply_size = 4096;
++	const int reply_size = 96*1024;
+ 	int reply_len;
+ 
+ 	if (os_strncmp(buf, WPA_CTRL_RSP, os_strlen(WPA_CTRL_RSP)) == 0 ||

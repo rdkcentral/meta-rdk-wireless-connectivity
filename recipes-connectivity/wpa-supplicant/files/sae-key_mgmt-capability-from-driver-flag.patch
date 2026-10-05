@@ -1,0 +1,21 @@
+Date: Thu Apr 30 08:14:14 2026 +0100
+From: sreedhar-reddy.billa
+Subject: Wpa-supplicant to read driver capability of SAE
+Source: NA
+Signed-off-by: Arjun <arjun_daasuramdass@comcast.com>
+---
+
+--- a/src/drivers/driver_nl80211_capa.c
++++ b/src/drivers/driver_nl80211_capa.c
+@@ -1358,6 +1358,11 @@
+ 				WPA_DRIVER_CAPA_KEY_MGMT_FILS_SHA256 |
+ 				WPA_DRIVER_CAPA_KEY_MGMT_FILS_SHA384;
+ 	}
++	if (drv->capa.flags & WPA_DRIVER_FLAGS_SAE) {
++		wpa_printf(MSG_INFO, "nl80211: Driver advertises SAE, adding to key_mgmt");
++		drv->capa.key_mgmt |= WPA_DRIVER_CAPA_KEY_MGMT_SAE;
++	}
++
+ 
+ 	if (!info.has_key_mgmt_iftype) {
+ 		/* If the driver does not advertize per interface AKM
