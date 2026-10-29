@@ -61,7 +61,45 @@ Index: wpa_supplicant-2.11/wpa_supplicant/events.c
 ===================================================================
 --- wpa_supplicant-2.11.orig/wpa_supplicant/events.c
 +++ wpa_supplicant-2.11/wpa_supplicant/events.c
-@@ -2330,6 +2330,12 @@ int wpa_supplicant_need_to_roam_within_e
+@@ -2263,9 +2263,29 @@ int wpa_supplicant_need_to_roam_within_e
+ 		wpas_channel_width_rssi_bump(sel_ies, sel_ie_len,
+ 					     selected->max_cw);
+ 
+-	if (sel_est > cur_est + 5000) {
++	cur_band_score = wpas_evaluate_band_score(current_bss->freq);
++	sel_band_score = wpas_evaluate_band_score(selected->freq);
++
++	/*
++	 * Require a gain above both 10 Mbps and 20% (estimates are in kbps)
++	 * to bypass the RSSI-based. This throughput-only
++	 * override is restricted to moving up to a higher-tier band (e.g.,
++	 * 2.4 GHz -> 5 GHz/6 GHz, or 5 GHz -> 6 GHz), since RSSI is not
++	 * directly comparable across bands there. For a same-band move, or
++	 * a move down to a lower-tier band, RSSI *is* a fair comparison and
++	 * a noisy throughput estimate alone must not be allowed to override
++	 * it (this also keeps a higher band "sticky" against being pulled
++	 * back down by throughput-estimate noise); those cases fall through
++	 * to the min_diff/roaming_threshold_db logic below instead.
++	 */
++
++	if (sel_band_score > cur_band_score &&
++			sel_est > cur_est &&
++			sel_est - cur_est > 10000 &&
++			sel_est - cur_est > cur_est / 5) {
+ 		wpa_dbg(wpa_s, MSG_DEBUG,
+-			"Allow reassociation - selected BSS has better estimated throughput");
++				"Allow reassociation - selected BSS has better estimated throughput (current=%u selected=%u kbps; gain > 10 Mbps and 20%%)",
++				cur_est, sel_est);
+ 		return 1;
+ 	}
+ 
+@@ -2324,12 +2344,16 @@ int wpa_supplicant_need_to_roam_within_e
+ 	else if (sel_est > cur_est)
+ 		min_diff--;
+ 
+-	cur_band_score = wpas_evaluate_band_score(current_bss->freq);
+-	sel_band_score = wpas_evaluate_band_score(selected->freq);
+ 	min_diff += (cur_band_score - sel_band_score) * 2;
  	if (wpa_s->signal_threshold && cur_level <= wpa_s->signal_threshold &&
  	    sel_level > wpa_s->signal_threshold)
  		min_diff -= 2;
