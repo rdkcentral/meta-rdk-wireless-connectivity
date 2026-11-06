@@ -8,7 +8,7 @@ SRC_URI += "file://increase_wpa_ctrl_return_buffer.patch"
 SRC_URI += "file://suppress_no_eap_session_id_log.patch"
 SRC_URI += "file://roaming_threshold.patch"
 SRC_URI += "file://sae-key_mgmt-capability-from-driver-flag.patch"
-SRC_URI += "file://notify_btm_req_event.patch"
+SRC_URI += "file://notify_btm_event.patch"
 
 inherit syslog-ng-config-gen logrotate_config
 #inherit breakpad-logmapper
