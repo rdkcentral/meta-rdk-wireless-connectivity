@@ -1,0 +1,378 @@
+Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
+===================================================================
+--- wpa_supplicant-2.10.orig/wpa_supplicant/dbus/dbus_new.c
++++ wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
+@@ -185,6 +185,136 @@ static void wpas_dbus_signal_interface_r
+ 
+ }
+ 
++/**
++ * wpas_dbus_signal_bss_tm_req_event - Emit a BSS transition request event
++ * @wpa_s: %wpa_supplicant network interface data
++ * @request_mode: BSS Transition Management Request Mode bitfield
++ * @disassoc_timer: Disassociation timer
++ * @validity_interval: Candidate list validity interval
++ * @list: Candidate BSS entries parsed from the request; must not be %NULL,
++ *        and @items must not be %NULL when @count is non-zero
++ *
++ * Sends the BSS_TM_Req_Event D-Bus signal with the current BSSID and
++ * frequency, request flags, timer and candidate entries. This reports the
++ * request to listeners; it does not initiate or change roaming. No signal is
++ * sent if the D-Bus interface or object path is unavailable, the list is
++ * invalid, or the signal cannot be constructed.
++ */
++void wpas_dbus_signal_bss_tm_req_event(struct wpa_supplicant *wpa_s,
++				    u8 request_mode, u16 disassoc_timer,
++				    u8 validity_interval,
++				    const struct wpas_btm_candidate_list *list)
++{
++	struct wpas_dbus_priv *iface = wpa_s->global->dbus;
++	DBusMessage *msg;
++	DBusMessageIter iter, payload, bssid_array, array, entry;
++	const unsigned char *bssid = wpa_s->bssid;
++	dbus_uint16_t current_freq = 0;
++	unsigned char validity = validity_interval;
++	dbus_bool_t abridged = (request_mode & WNM_BSS_TM_REQ_ABRIDGED) ? TRUE : FALSE;
++	dbus_bool_t ess_imminent =
++		(request_mode & WNM_BSS_TM_REQ_ESS_DISASSOC_IMMINENT) ? TRUE : FALSE;
++	dbus_bool_t bss_imminent =
++		(request_mode & WNM_BSS_TM_REQ_DISASSOC_IMMINENT) ? TRUE : FALSE;
++	dbus_bool_t bss_timed =
++		(request_mode & WNM_BSS_TM_REQ_BSS_TERMINATION_INCLUDED) ? TRUE : FALSE;
++	dbus_uint16_t timer = disassoc_timer;
++	dbus_uint32_t count;
++	u32 i;
++
++	if (!iface || !wpa_s->dbus_new_path || !list ||
++	    (list->count && !list->items))
++	{
++            wpa_printf(MSG_DEBUG, "%s: skipping BTM signal "
++                  "(dbus=%s path=%s list=%s count=%u items=%s)",
++                   __func__,
++                   iface ? "ready" : "unavailable",
++                   wpa_s->dbus_new_path ? "ready" : "unavailable",
++                   list ? "present" : "null",
++                   list ? list->count : 0,
++                   (list && list->items) ? "present" : "null");
++		return;
++	}
++
++	if (wpa_s->current_bss && wpa_s->current_bss->freq > 0)
++		current_freq = wpa_s->current_bss->freq;
++	else if (wpa_s->assoc_freq > 0)
++		current_freq = wpa_s->assoc_freq;
++
++	count = list->count;
++	msg = dbus_message_new_signal(wpa_s->dbus_new_path,
++				      WPAS_DBUS_NEW_IFACE_INTERFACE,
++				      "BSS_TM_Req_Event");
++	if (!msg)
++		return;
++
++	dbus_message_iter_init_append(msg, &iter);
++	if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_STRUCT,
++					      NULL, &payload) ||
++	    !dbus_message_iter_open_container(&payload, DBUS_TYPE_ARRAY,
++					      DBUS_TYPE_BYTE_AS_STRING,
++					      &bssid_array) ||
++	    !dbus_message_iter_append_fixed_array(&bssid_array, DBUS_TYPE_BYTE,
++						  &bssid, ETH_ALEN) ||
++	    !dbus_message_iter_close_container(&payload, &bssid_array) ||
++	    !dbus_message_iter_append_basic(&payload, DBUS_TYPE_UINT16,
++						&current_freq) ||
++	    !dbus_message_iter_append_basic(&payload, DBUS_TYPE_BYTE,
++						&validity) ||
++	    !dbus_message_iter_append_basic(&payload, DBUS_TYPE_BOOLEAN,
++						&abridged) ||
++	    !dbus_message_iter_append_basic(&payload, DBUS_TYPE_BOOLEAN,
++						&ess_imminent) ||
++	    !dbus_message_iter_append_basic(&payload, DBUS_TYPE_BOOLEAN,
++						&bss_imminent) ||
++	    !dbus_message_iter_append_basic(&payload, DBUS_TYPE_BOOLEAN,
++						&bss_timed) ||
++	    !dbus_message_iter_append_basic(&payload, DBUS_TYPE_UINT16,
++						&timer) ||
++	    !dbus_message_iter_append_basic(&payload, DBUS_TYPE_UINT32,
++						&count) ||
++	    !dbus_message_iter_open_container(&payload, DBUS_TYPE_ARRAY,
++						  "(ayqy)", &array))
++		goto error;
++
++	for (i = 0; i < list->count; i++) {
++		const struct wpas_btm_candidate *candidate = &list->items[i];
++		const unsigned char *candidate_bssid = candidate->bssid;
++		dbus_uint16_t candidate_freq = candidate->frequency_mhz;
++		unsigned char channel = candidate->channel;
++		DBusMessageIter candidate_bssid_array;
++
++		if (!dbus_message_iter_open_container(&array, DBUS_TYPE_STRUCT,
++						      NULL, &entry) ||
++		    !dbus_message_iter_open_container(&entry, DBUS_TYPE_ARRAY,
++						      DBUS_TYPE_BYTE_AS_STRING,
++						      &candidate_bssid_array) ||
++		    !dbus_message_iter_append_fixed_array(&candidate_bssid_array,
++							  DBUS_TYPE_BYTE,
++							  &candidate_bssid,
++							  ETH_ALEN) ||
++		    !dbus_message_iter_close_container(&entry,
++						   &candidate_bssid_array) ||
++		    !dbus_message_iter_append_basic(&entry, DBUS_TYPE_UINT16,
++							&candidate_freq) ||
++		    !dbus_message_iter_append_basic(&entry, DBUS_TYPE_BYTE,
++							&channel) ||
++		    !dbus_message_iter_close_container(&array, &entry))
++			goto error;
++	}
++
++	if (!dbus_message_iter_close_container(&payload, &array) ||
++	    !dbus_message_iter_close_container(&iter, &payload))
++		goto error;
++
++	dbus_connection_send(iface->con, msg, NULL);
++	dbus_message_unref(msg);
++	return;
++
++error:
++	wpa_printf(MSG_ERROR, "dbus: Failed to construct BTM request event signal");
++	dbus_message_unref(msg);
++}
+ 
+ /**
+  * wpas_dbus_signal_scan_done - send scan done signal
+@@ -4000,6 +4130,12 @@ static const struct wpa_dbus_signal_desc
+ 		  END_ARGS
+ 	  }
+ 	},
++        { "BSS_TM_Req_Event", WPAS_DBUS_NEW_IFACE_INTERFACE,
++          {
++                  { "payload", "(ayqybbbbqua(ayqy))", ARG_OUT },
++                  END_ARGS
++          }
++        },
+ #ifdef CONFIG_WPS
+ 	{ "Event", WPAS_DBUS_NEW_IFACE_WPS,
+ 	  {
+Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.h
+===================================================================
+--- wpa_supplicant-2.10.orig/wpa_supplicant/dbus/dbus_new.h
++++ wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.h
+@@ -21,6 +21,7 @@ struct wpa_bss;
+ struct wps_event_m2d;
+ struct wps_event_fail;
+ struct wps_credential;
++struct wpas_btm_candidate_list;
+ 
+ enum wpas_dbus_prop {
+ 	WPAS_DBUS_PROP_AP_SCAN,
+@@ -276,6 +277,10 @@ void wpas_dbus_signal_interworking_ap_ad
+ 					    int bh, int bss_load,
+ 					    int conn_capab);
+ void wpas_dbus_signal_interworking_select_done(struct wpa_supplicant *wpa_s);
++void wpas_dbus_signal_bss_tm_req_event(struct wpa_supplicant *wpa_s,
++                u8 request_mode, u16 disassoc_timer,
++                u8 validity_interval,
++                const struct wpas_btm_candidate_list *list);
+ 
+ #else /* CONFIG_CTRL_IFACE_DBUS_NEW */
+ 
+@@ -643,6 +648,14 @@ void wpas_dbus_signal_interworking_selec
+ {
+ }
+ 
++static inline
++void wpas_dbus_signal_bss_tm_req_event(struct wpa_supplicant *wpa_s,
++                u8 request_mode, u16 disassoc_timer,
++                u8 validity_interval,
++                const struct wpas_btm_candidate_list *list)
++{
++}
++
+ #endif /* CONFIG_CTRL_IFACE_DBUS_NEW */
+ 
+ #endif /* CTRL_IFACE_DBUS_H_NEW */
+Index: wpa_supplicant-2.10/wpa_supplicant/notify.c
+===================================================================
+--- wpa_supplicant-2.10.orig/wpa_supplicant/notify.c
++++ wpa_supplicant-2.10/wpa_supplicant/notify.c
+@@ -175,6 +175,16 @@ void wpas_notify_session_length(struct w
+ 	wpas_dbus_signal_prop_changed(wpa_s, WPAS_DBUS_PROP_SESSION_LENGTH);
+ }
+ 
++void wpas_notify_bss_tm_req_event(struct wpa_supplicant *wpa_s,
++               u8 request_mode, u16 disassoc_timer,
++               u8 validity_interval,
++               const struct wpas_btm_candidate_list *list)
++{
++    if (!wpa_s->p2p_mgmt)
++        wpas_dbus_signal_bss_tm_req_event(wpa_s, request_mode,
++                       disassoc_timer, validity_interval,
++                       list);
++}
+ 
+ void wpas_notify_bss_tm_status(struct wpa_supplicant *wpa_s)
+ {
+Index: wpa_supplicant-2.10/wpa_supplicant/notify.h
+===================================================================
+--- wpa_supplicant-2.10.orig/wpa_supplicant/notify.h
++++ wpa_supplicant-2.10/wpa_supplicant/notify.h
+@@ -16,6 +16,7 @@ struct wps_event_m2d;
+ struct wps_event_fail;
+ struct tls_cert_data;
+ struct wpa_cred;
++struct wpas_btm_candidate_list;
+ 
+ int wpas_notify_supplicant_initialized(struct wpa_global *global);
+ void wpas_notify_supplicant_deinitialized(struct wpa_global *global);
+@@ -31,6 +32,11 @@ void wpas_notify_roam_time(struct wpa_su
+ void wpas_notify_roam_complete(struct wpa_supplicant *wpa_s);
+ void wpas_notify_session_length(struct wpa_supplicant *wpa_s);
+ void wpas_notify_bss_tm_status(struct wpa_supplicant *wpa_s);
++void wpas_notify_bss_tm_req_event(struct wpa_supplicant *wpa_s,
++                                  u8 request_mode, u16 disassoc_timer,
++                                  u8 validity_interval,
++                                  const struct wpas_btm_candidate_list *list);
++
+ void wpas_notify_network_changed(struct wpa_supplicant *wpa_s);
+ void wpas_notify_ap_scan_changed(struct wpa_supplicant *wpa_s);
+ void wpas_notify_bssid_changed(struct wpa_supplicant *wpa_s);
+Index: wpa_supplicant-2.10/wpa_supplicant/wnm_sta.c
+===================================================================
+--- wpa_supplicant-2.10.orig/wpa_supplicant/wnm_sta.c
++++ wpa_supplicant-2.10/wpa_supplicant/wnm_sta.c
+@@ -600,6 +600,30 @@ static void wnm_parse_neighbor_report(st
+ 				     rep->channel_number);
+ }
+ 
++static void wnm_notify_bss_tm_req_event(struct wpa_supplicant *wpa_s,
++                 u8 request_mode, u16 disassoc_timer,
++                 u8 validity_interval,
++                 int include_candidates)
++{
++    struct wpas_btm_candidate candidates[WNM_MAX_NEIGHBOR_REPORT];
++    struct wpas_btm_candidate_list list;
++    unsigned int i;
++
++    list.count = include_candidates ? wpa_s->wnm_num_neighbor_report : 0;
++    list.items = list.count ? candidates : NULL;
++
++    for (i = 0; i < list.count; i++) {
++        const struct neighbor_report *report =
++            &wpa_s->wnm_neighbor_report_elements[i];
++
++        os_memcpy(candidates[i].bssid, report->bssid, ETH_ALEN);
++        candidates[i].channel = report->channel_number;
++        candidates[i].frequency_mhz = report->freq > 0 ? report->freq : 0;
++    }
++
++    wpas_notify_bss_tm_req_event(wpa_s, request_mode, disassoc_timer,
++                  validity_interval, &list);
++}
+ 
+ static void wnm_clear_acceptable(struct wpa_supplicant *wpa_s)
+ {
+@@ -1395,10 +1419,12 @@ static void ieee802_11_rx_bss_trans_mgmt
+ {
+ 	unsigned int beacon_int;
+ 	u8 valid_int;
++        int btm_candidates_available = 0;
++        int btm_event_sent = 0;
+ #ifdef CONFIG_MBO
+ 	const u8 *vendor;
+ #endif /* CONFIG_MBO */
+-
++        /* Report BTM requests only if BTM processing is enabled. */
+ 	if (wpa_s->disable_mbo_oce || wpa_s->conf->disable_btm)
+ 		return;
+ 
+@@ -1436,7 +1462,7 @@ static void ieee802_11_rx_bss_trans_mgmt
+ 			wpa_s, wpa_s->wnm_dialog_token,
+ 			wpa_s->reject_btm_req_reason,
+ 			MBO_TRANSITION_REJECT_REASON_UNSPECIFIED, 0, NULL);
+-		return;
++		goto btm_notify;
+ 	}
+ #endif /* CONFIG_MBO && CONFIG_TESTING_OPTIONS */
+ 
+@@ -1445,7 +1471,7 @@ static void ieee802_11_rx_bss_trans_mgmt
+ 	if (wpa_s->wnm_mode & WNM_BSS_TM_REQ_BSS_TERMINATION_INCLUDED) {
+ 		if (end - pos < 12) {
+ 			wpa_printf(MSG_DEBUG, "WNM: Too short BSS TM Request");
+-			return;
++			goto btm_notify;
+ 		}
+ 		os_memcpy(wpa_s->wnm_bss_termination_duration, pos, 12);
+ 		pos += 12; /* BSS Termination Duration */
+@@ -1457,7 +1483,7 @@ static void ieee802_11_rx_bss_trans_mgmt
+ 		if (end - pos < 1 || 1 + pos[0] > end - pos) {
+ 			wpa_printf(MSG_DEBUG, "WNM: Invalid BSS Transition "
+ 				   "Management Request (URL)");
+-			return;
++			goto btm_notify;
+ 		}
+ 		os_memcpy(url, pos + 1, pos[0]);
+ 		url[pos[0]] = '\0';
+@@ -1494,7 +1520,8 @@ static void ieee802_11_rx_bss_trans_mgmt
+ 			WNM_MAX_NEIGHBOR_REPORT,
+ 			sizeof(struct neighbor_report));
+ 		if (wpa_s->wnm_neighbor_report_elements == NULL)
+-			return;
++			goto btm_notify;
++                btm_candidates_available = 1;
+ 
+ 		while (end - pos >= 2 &&
+ 		       wpa_s->wnm_num_neighbor_report < WNM_MAX_NEIGHBOR_REPORT)
+@@ -1528,6 +1555,9 @@ static void ieee802_11_rx_bss_trans_mgmt
+ 			pos += len;
+ 		}
+ 
++                wnm_notify_bss_tm_req_event(wpa_s, wpa_s->wnm_mode,
++                                     wpa_s->wnm_dissoc_timer, valid_int, 1);
++                btm_event_sent = 1;
+ 		if (!wpa_s->wnm_num_neighbor_report) {
+ 			wpa_printf(MSG_DEBUG,
+ 				   "WNM: Candidate list included bit is set, but no candidates found");
+@@ -1602,6 +1632,12 @@ static void ieee802_11_rx_bss_trans_mgmt
+ 			wpa_s, wpa_s->wnm_dialog_token, status,
+ 			MBO_TRANSITION_REJECT_REASON_UNSPECIFIED, 0, NULL);
+ 	}
++btm_notify:
++    if (!btm_event_sent)
++        wnm_notify_bss_tm_req_event(
++            wpa_s, wpa_s->wnm_mode, wpa_s->wnm_dissoc_timer,
++            valid_int,
++               btm_candidates_available);
+ }
+ 
+ 
+Index: wpa_supplicant-2.10/wpa_supplicant/wpa_supplicant_i.h
+===================================================================
+--- wpa_supplicant-2.10.orig/wpa_supplicant/wpa_supplicant_i.h
++++ wpa_supplicant-2.10/wpa_supplicant/wpa_supplicant_i.h
+@@ -678,6 +678,27 @@ struct active_scs_elem {
+ 	enum scs_response_status status;
+ };
+ 
++/**
++ * struct wpas_btm_candidate - Candidate BSS from a BTM request
++ * @bssid: Candidate BSSID
++ * @channel: Channel number
++ * @frequency_mhz: Candidate operating frequency in MHz
++ */
++struct wpas_btm_candidate {
++    u8 bssid[ETH_ALEN];
++    u32 channel;
++    u32 frequency_mhz;
++};
++
++/**
++ * struct wpas_btm_candidate_list - Candidate BSS entries from a BTM request
++ * @count: Number of entries in @items
++ * @items: Array of candidates.
++ */
++struct wpas_btm_candidate_list {
++    u32 count;
++    const struct wpas_btm_candidate *items;
++};
+ 
+ /**
+  * struct wpa_supplicant - Internal data for wpa_supplicant interface
