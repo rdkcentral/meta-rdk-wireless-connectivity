@@ -8,7 +8,6 @@ SRC_URI += "file://auth_timeout_retry_logic_2.10.patch \
 	    file://wpa_cli_command_changes_to_skip_p2p_iface_for_default_iface.patch \
             file://unii3_country_code_check.patch \
             file://wifi_sanity_checker.sh \
-            file://notify_btm_event.patch \
             "
 do_configure:append () {
 
