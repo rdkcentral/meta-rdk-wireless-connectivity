@@ -1,3 +1,9 @@
+Date: Nov 12 2026
+From: Anand <anand_n@comcast.com>
+Subject: Publish BSS Transition Management event data 
+Source: COMCAST
+Signed-off-by: Anand <anand_n@comcast.com>
+
 Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
 ===================================================================
 --- wpa_supplicant-2.10.orig/wpa_supplicant/dbus/dbus_new.c
@@ -46,14 +52,14 @@ Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
 +	if (!iface || !wpa_s->dbus_new_path || !list ||
 +	    (list->count && !list->items))
 +	{
-+            wpa_printf(MSG_DEBUG, "%s: skipping BTM signal "
-+                  "(dbus=%s path=%s list=%s count=%u items=%s)",
-+                   __func__,
-+                   iface ? "ready" : "unavailable",
-+                   wpa_s->dbus_new_path ? "ready" : "unavailable",
-+                   list ? "present" : "null",
-+                   list ? list->count : 0,
-+                   (list && list->items) ? "present" : "null");
++		wpa_printf(MSG_DEBUG, "%s: skipping BTM signal "
++			"(dbus=%s path=%s list=%s count=%u items=%s)",
++			__func__,
++			iface ? "ready" : "unavailable",
++			wpa_s->dbus_new_path ? "ready" : "unavailable",
++			list ? "present" : "null",
++			list ? list->count : 0,
++			(list && list->items) ? "present" : "null");
 +		return;
 +	}
 +
@@ -143,12 +149,12 @@ Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
  		  END_ARGS
  	  }
  	},
-+        { "BSS_TM_Req_Event", WPAS_DBUS_NEW_IFACE_INTERFACE,
-+          {
-+                  { "payload", "(ayqybbbbqua(ayqy))", ARG_OUT },
-+                  END_ARGS
-+          }
-+        },
++	{ "BSS_TM_Req_Event", WPAS_DBUS_NEW_IFACE_INTERFACE,
++	  {
++		  { "payload", "(ayqybbbbqua(ayqy))", ARG_OUT },
++		  END_ARGS
++	  }
++	},
  #ifdef CONFIG_WPS
  	{ "Event", WPAS_DBUS_NEW_IFACE_WPS,
  	  {
@@ -194,7 +200,7 @@ Index: wpa_supplicant-2.10/wpa_supplicant/notify.c
 ===================================================================
 --- wpa_supplicant-2.10.orig/wpa_supplicant/notify.c
 +++ wpa_supplicant-2.10/wpa_supplicant/notify.c
-@@ -175,6 +175,16 @@ void wpas_notify_session_length(struct w
+@@ -175,6 +175,15 @@ void wpas_notify_session_length(struct w
  	wpas_dbus_signal_prop_changed(wpa_s, WPAS_DBUS_PROP_SESSION_LENGTH);
  }
  
@@ -203,10 +209,9 @@ Index: wpa_supplicant-2.10/wpa_supplicant/notify.c
 +               u8 validity_interval,
 +               const struct wpas_btm_candidate_list *list)
 +{
-+    if (!wpa_s->p2p_mgmt)
-+        wpas_dbus_signal_bss_tm_req_event(wpa_s, request_mode,
-+                       disassoc_timer, validity_interval,
-+                       list);
++	if (!wpa_s->p2p_mgmt)
++		wpas_dbus_signal_bss_tm_req_event(wpa_s, request_mode,
++		    disassoc_timer, validity_interval, list);
 +}
  
  void wpas_notify_bss_tm_status(struct wpa_supplicant *wpa_s)
@@ -248,24 +253,24 @@ Index: wpa_supplicant-2.10/wpa_supplicant/wnm_sta.c
 +                 u8 validity_interval,
 +                 int include_candidates)
 +{
-+    struct wpas_btm_candidate candidates[WNM_MAX_NEIGHBOR_REPORT];
-+    struct wpas_btm_candidate_list list;
-+    unsigned int i;
++	struct wpas_btm_candidate candidates[WNM_MAX_NEIGHBOR_REPORT];
++	struct wpas_btm_candidate_list list;
++	unsigned int i;
 +
-+    list.count = include_candidates ? wpa_s->wnm_num_neighbor_report : 0;
-+    list.items = list.count ? candidates : NULL;
++	list.count = include_candidates ? wpa_s->wnm_num_neighbor_report : 0;
++	list.items = list.count ? candidates : NULL;
 +
-+    for (i = 0; i < list.count; i++) {
-+        const struct neighbor_report *report =
-+            &wpa_s->wnm_neighbor_report_elements[i];
++	for (i = 0; i < list.count; i++) {
++		const struct neighbor_report *report =
++		    &wpa_s->wnm_neighbor_report_elements[i];
 +
-+        os_memcpy(candidates[i].bssid, report->bssid, ETH_ALEN);
-+        candidates[i].channel = report->channel_number;
-+        candidates[i].frequency_mhz = report->freq > 0 ? report->freq : 0;
-+    }
++		os_memcpy(candidates[i].bssid, report->bssid, ETH_ALEN);
++		candidates[i].channel = report->channel_number;
++		candidates[i].frequency_mhz = report->freq > 0 ? report->freq : 0;
++	}
 +
-+    wpas_notify_bss_tm_req_event(wpa_s, request_mode, disassoc_timer,
-+                  validity_interval, &list);
++	wpas_notify_bss_tm_req_event(wpa_s, request_mode, disassoc_timer,
++	    validity_interval, &list);
 +}
  
  static void wnm_clear_acceptable(struct wpa_supplicant *wpa_s)
@@ -274,13 +279,13 @@ Index: wpa_supplicant-2.10/wpa_supplicant/wnm_sta.c
  {
  	unsigned int beacon_int;
  	u8 valid_int;
-+        int btm_candidates_available = 0;
-+        int btm_event_sent = 0;
++	int btm_candidates_available = 0;
++	int btm_event_sent = 0;
  #ifdef CONFIG_MBO
  	const u8 *vendor;
  #endif /* CONFIG_MBO */
 -
-+        /* Report BTM requests only if BTM processing is enabled. */
++	/* Report BTM requests only if BTM processing is enabled. */
  	if (wpa_s->disable_mbo_oce || wpa_s->conf->disable_btm)
  		return;
  
@@ -317,7 +322,7 @@ Index: wpa_supplicant-2.10/wpa_supplicant/wnm_sta.c
  		if (wpa_s->wnm_neighbor_report_elements == NULL)
 -			return;
 +			goto btm_notify;
-+                btm_candidates_available = 1;
++		btm_candidates_available = 1;
  
  		while (end - pos >= 2 &&
  		       wpa_s->wnm_num_neighbor_report < WNM_MAX_NEIGHBOR_REPORT)
@@ -325,22 +330,21 @@ Index: wpa_supplicant-2.10/wpa_supplicant/wnm_sta.c
  			pos += len;
  		}
  
-+                wnm_notify_bss_tm_req_event(wpa_s, wpa_s->wnm_mode,
-+                                     wpa_s->wnm_dissoc_timer, valid_int, 1);
-+                btm_event_sent = 1;
++		wnm_notify_bss_tm_req_event(wpa_s, wpa_s->wnm_mode,
++						    wpa_s->wnm_dissoc_timer, valid_int, 1);
++		btm_event_sent = 1;
  		if (!wpa_s->wnm_num_neighbor_report) {
  			wpa_printf(MSG_DEBUG,
  				   "WNM: Candidate list included bit is set, but no candidates found");
-@@ -1602,6 +1632,12 @@ static void ieee802_11_rx_bss_trans_mgmt
+@@ -1602,6 +1632,11 @@ static void ieee802_11_rx_bss_trans_mgmt
  			wpa_s, wpa_s->wnm_dialog_token, status,
  			MBO_TRANSITION_REJECT_REASON_UNSPECIFIED, 0, NULL);
  	}
 +btm_notify:
-+    if (!btm_event_sent)
-+        wnm_notify_bss_tm_req_event(
-+            wpa_s, wpa_s->wnm_mode, wpa_s->wnm_dissoc_timer,
-+            valid_int,
-+               btm_candidates_available);
++	if (!btm_event_sent)
++		wnm_notify_bss_tm_req_event(
++		wpa_s, wpa_s->wnm_mode, wpa_s->wnm_dissoc_timer,
++		valid_int, btm_candidates_available);
  }
  
  
@@ -359,9 +363,9 @@ Index: wpa_supplicant-2.10/wpa_supplicant/wpa_supplicant_i.h
 + * @frequency_mhz: Candidate operating frequency in MHz
 + */
 +struct wpas_btm_candidate {
-+    u8 bssid[ETH_ALEN];
-+    u32 channel;
-+    u32 frequency_mhz;
++	u8 bssid[ETH_ALEN];
++	u32 channel;
++	u32 frequency_mhz;
 +};
 +
 +/**
@@ -370,8 +374,8 @@ Index: wpa_supplicant-2.10/wpa_supplicant/wpa_supplicant_i.h
 + * @items: Array of candidates.
 + */
 +struct wpas_btm_candidate_list {
-+    u32 count;
-+    const struct wpas_btm_candidate *items;
++	u32 count;
++	const struct wpas_btm_candidate *items;
 +};
  
  /**
