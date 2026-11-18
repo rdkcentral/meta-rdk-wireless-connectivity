@@ -1,8 +1,8 @@
 Date: Nov 12 2026
-From: Anand <anand_n@comcast.com>
-Subject: Publish BSS Transition Management event data 
+From: Anand N
+Subject: Publish BSS Transition Management Info 
 Source: COMCAST
-Signed-off-by: Anand <anand_n@comcast.com>
+Signed-off-by: Anand N <anand_n@comcast.com>
 
 Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
 ===================================================================
@@ -21,16 +21,16 @@ Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
 + * @list: Candidate BSS entries parsed from the request; must not be %NULL,
 + *        and @items must not be %NULL when @count is non-zero
 + *
-+ * Sends the BSS_TM_Req_Event D-Bus signal with the current BSSID and
++ * Sends the BSSTMReqEvent D-Bus signal with the current BSSID and
 + * frequency, request flags, timer and candidate entries. This reports the
 + * request to listeners; it does not initiate or change roaming. No signal is
 + * sent if the D-Bus interface or object path is unavailable, the list is
 + * invalid, or the signal cannot be constructed.
 + */
 +void wpas_dbus_signal_bss_tm_req_event(struct wpa_supplicant *wpa_s,
-+				    u8 request_mode, u16 disassoc_timer,
-+				    u8 validity_interval,
-+				    const struct wpas_btm_candidate_list *list)
++				       u8 request_mode, u16 disassoc_timer,
++				       u8 validity_interval,
++				       const struct wpas_btm_candidate_list *list)
 +{
 +	struct wpas_dbus_priv *iface = wpa_s->global->dbus;
 +	DBusMessage *msg;
@@ -38,7 +38,8 @@ Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
 +	const unsigned char *bssid = wpa_s->bssid;
 +	dbus_uint16_t current_freq = 0;
 +	unsigned char validity = validity_interval;
-+	dbus_bool_t abridged = (request_mode & WNM_BSS_TM_REQ_ABRIDGED) ? TRUE : FALSE;
++	dbus_bool_t abridged =
++		(request_mode & WNM_BSS_TM_REQ_ABRIDGED) ? TRUE : FALSE;
 +	dbus_bool_t ess_imminent =
 +		(request_mode & WNM_BSS_TM_REQ_ESS_DISASSOC_IMMINENT) ? TRUE : FALSE;
 +	dbus_bool_t bss_imminent =
@@ -50,8 +51,7 @@ Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
 +	u32 i;
 +
 +	if (!iface || !wpa_s->dbus_new_path || !list ||
-+	    (list->count && !list->items))
-+	{
++	    (list->count && !list->items)) {
 +		wpa_printf(MSG_DEBUG, "%s: skipping BTM signal "
 +			"(dbus=%s path=%s list=%s count=%u items=%s)",
 +			__func__,
@@ -71,7 +71,7 @@ Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
 +	count = list->count;
 +	msg = dbus_message_new_signal(wpa_s->dbus_new_path,
 +				      WPAS_DBUS_NEW_IFACE_INTERFACE,
-+				      "BSS_TM_Req_Event");
++				      "BSSTMReqEvent");
 +	if (!msg)
 +		return;
 +
@@ -121,11 +121,11 @@ Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
 +							  &candidate_bssid,
 +							  ETH_ALEN) ||
 +		    !dbus_message_iter_close_container(&entry,
-+						   &candidate_bssid_array) ||
++						       &candidate_bssid_array) ||
 +		    !dbus_message_iter_append_basic(&entry, DBUS_TYPE_UINT16,
-+							&candidate_freq) ||
++						    &candidate_freq) ||
 +		    !dbus_message_iter_append_basic(&entry, DBUS_TYPE_BYTE,
-+							&channel) ||
++						    &channel) ||
 +		    !dbus_message_iter_close_container(&array, &entry))
 +			goto error;
 +	}
@@ -149,7 +149,7 @@ Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.c
  		  END_ARGS
  	  }
  	},
-+	{ "BSS_TM_Req_Event", WPAS_DBUS_NEW_IFACE_INTERFACE,
++	{ "BSSTMReqEvent", WPAS_DBUS_NEW_IFACE_INTERFACE,
 +	  {
 +		  { "payload", "(ayqybbbbqua(ayqy))", ARG_OUT },
 +		  END_ARGS
@@ -175,9 +175,9 @@ Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.h
  					    int conn_capab);
  void wpas_dbus_signal_interworking_select_done(struct wpa_supplicant *wpa_s);
 +void wpas_dbus_signal_bss_tm_req_event(struct wpa_supplicant *wpa_s,
-+                u8 request_mode, u16 disassoc_timer,
-+                u8 validity_interval,
-+                const struct wpas_btm_candidate_list *list);
++				       u8 request_mode, u16 disassoc_timer,
++				       u8 validity_interval,
++				       const struct wpas_btm_candidate_list *list);
  
  #else /* CONFIG_CTRL_IFACE_DBUS_NEW */
  
@@ -187,9 +187,9 @@ Index: wpa_supplicant-2.10/wpa_supplicant/dbus/dbus_new.h
  
 +static inline
 +void wpas_dbus_signal_bss_tm_req_event(struct wpa_supplicant *wpa_s,
-+                u8 request_mode, u16 disassoc_timer,
-+                u8 validity_interval,
-+                const struct wpas_btm_candidate_list *list)
++				       u8 request_mode, u16 disassoc_timer,
++				       u8 validity_interval,
++				       const struct wpas_btm_candidate_list *list)
 +{
 +}
 +
@@ -200,18 +200,19 @@ Index: wpa_supplicant-2.10/wpa_supplicant/notify.c
 ===================================================================
 --- wpa_supplicant-2.10.orig/wpa_supplicant/notify.c
 +++ wpa_supplicant-2.10/wpa_supplicant/notify.c
-@@ -175,6 +175,15 @@ void wpas_notify_session_length(struct w
+@@ -175,6 +175,16 @@ void wpas_notify_session_length(struct w
  	wpas_dbus_signal_prop_changed(wpa_s, WPAS_DBUS_PROP_SESSION_LENGTH);
  }
  
 +void wpas_notify_bss_tm_req_event(struct wpa_supplicant *wpa_s,
-+               u8 request_mode, u16 disassoc_timer,
-+               u8 validity_interval,
-+               const struct wpas_btm_candidate_list *list)
++				  u8 request_mode, u16 disassoc_timer,
++				  u8 validity_interval,
++				  const struct wpas_btm_candidate_list *list)
 +{
 +	if (!wpa_s->p2p_mgmt)
 +		wpas_dbus_signal_bss_tm_req_event(wpa_s, request_mode,
-+		    disassoc_timer, validity_interval, list);
++						  disassoc_timer,
++						  validity_interval, list);
 +}
  
  void wpas_notify_bss_tm_status(struct wpa_supplicant *wpa_s)
@@ -228,15 +229,14 @@ Index: wpa_supplicant-2.10/wpa_supplicant/notify.h
  
  int wpas_notify_supplicant_initialized(struct wpa_global *global);
  void wpas_notify_supplicant_deinitialized(struct wpa_global *global);
-@@ -31,6 +32,11 @@ void wpas_notify_roam_time(struct wpa_su
+@@ -31,6 +32,10 @@ void wpas_notify_roam_time(struct wpa_su
  void wpas_notify_roam_complete(struct wpa_supplicant *wpa_s);
  void wpas_notify_session_length(struct wpa_supplicant *wpa_s);
  void wpas_notify_bss_tm_status(struct wpa_supplicant *wpa_s);
 +void wpas_notify_bss_tm_req_event(struct wpa_supplicant *wpa_s,
-+                                  u8 request_mode, u16 disassoc_timer,
-+                                  u8 validity_interval,
-+                                  const struct wpas_btm_candidate_list *list);
-+
++				  u8 request_mode, u16 disassoc_timer,
++				  u8 validity_interval,
++				  const struct wpas_btm_candidate_list *list);
  void wpas_notify_network_changed(struct wpa_supplicant *wpa_s);
  void wpas_notify_ap_scan_changed(struct wpa_supplicant *wpa_s);
  void wpas_notify_bssid_changed(struct wpa_supplicant *wpa_s);
@@ -249,9 +249,9 @@ Index: wpa_supplicant-2.10/wpa_supplicant/wnm_sta.c
  }
  
 +static void wnm_notify_bss_tm_req_event(struct wpa_supplicant *wpa_s,
-+                 u8 request_mode, u16 disassoc_timer,
-+                 u8 validity_interval,
-+                 int include_candidates)
++					u8 request_mode, u16 disassoc_timer,
++					u8 validity_interval,
++					int include_candidates)
 +{
 +	struct wpas_btm_candidate candidates[WNM_MAX_NEIGHBOR_REPORT];
 +	struct wpas_btm_candidate_list list;
@@ -270,7 +270,7 @@ Index: wpa_supplicant-2.10/wpa_supplicant/wnm_sta.c
 +	}
 +
 +	wpas_notify_bss_tm_req_event(wpa_s, request_mode, disassoc_timer,
-+	    validity_interval, &list);
++				     validity_interval, &list);
 +}
  
  static void wnm_clear_acceptable(struct wpa_supplicant *wpa_s)
@@ -331,7 +331,7 @@ Index: wpa_supplicant-2.10/wpa_supplicant/wnm_sta.c
  		}
  
 +		wnm_notify_bss_tm_req_event(wpa_s, wpa_s->wnm_mode,
-+						    wpa_s->wnm_dissoc_timer, valid_int, 1);
++				            wpa_s->wnm_dissoc_timer, valid_int, 1);
 +		btm_event_sent = 1;
  		if (!wpa_s->wnm_num_neighbor_report) {
  			wpa_printf(MSG_DEBUG,
@@ -342,9 +342,9 @@ Index: wpa_supplicant-2.10/wpa_supplicant/wnm_sta.c
  	}
 +btm_notify:
 +	if (!btm_event_sent)
-+		wnm_notify_bss_tm_req_event(
-+		wpa_s, wpa_s->wnm_mode, wpa_s->wnm_dissoc_timer,
-+		valid_int, btm_candidates_available);
++		wnm_notify_bss_tm_req_event(wpa_s, wpa_s->wnm_mode,
++				            wpa_s->wnm_dissoc_timer,
++				            valid_int, btm_candidates_available);
  }
  
  
