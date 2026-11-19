@@ -22,6 +22,7 @@ SRC_URI += "file://auth_timeout_retry_logic_2.11.patch \
             file://suppress_no_eap_session_id_log_2.11.patch \
             file://roaming_threshold_2.11.patch \
             file://wifi_sanity_checker.sh \
+	    file://notify_btm_event_2.11.patch \
 	   "
 do_configure:append () {
 
