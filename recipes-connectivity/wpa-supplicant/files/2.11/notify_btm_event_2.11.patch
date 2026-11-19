@@ -1,3 +1,9 @@
+Date: Nov 12 2026
+From: Anand N
+Subject: Publish BSS Transition Management Info
+Source: COMCAST
+Signed-off-by: Anand N<anand_n@comcast.com>
+
 Index: wpa_supplicant-2.11/wpa_supplicant/dbus/dbus_new.c
 ===================================================================
 --- wpa_supplicant-2.11.orig/wpa_supplicant/dbus/dbus_new.c
